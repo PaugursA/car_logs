@@ -475,6 +475,13 @@
             }
         });
         
+        // Helper function for date formatting
+        function formatDateToDDMMYYYY(dateString) {
+            if (!dateString) return '';
+            const [year, month, day] = dateString.split('-');
+            return `${day}.${month}.${year}`;
+        }
+
         // Find the table range in the specified sheet
         async function findTableRange(sheetName, tableName) {
             try {
@@ -513,24 +520,20 @@
                 const tableInfo = await findTableRange(sheetName, tableName);
                 const allSheetValues = tableInfo.allSheetValues;
                 const tablePosRow = tableInfo.row;
-                const tablePosCol = tableInfo.col; // Although not strictly used for column, it's good to keep
+                const tablePosCol = tableInfo.col;
 
                 let nextRow;
                 let columnHeaders = [];
 
-                // Check if the table name is present at the expected position
-                // And if there's a second row for headers
+                // Check if needs headers
                 const needsHeaders = !(allSheetValues[tablePosRow - 1] && allSheetValues[tablePosRow - 1][tablePosCol - 1] === tableName) ||
-                                     !(allSheetValues[tablePosRow] && allSheetValues[tablePosRow].length > 0);
+                                    !(allSheetValues[tablePosRow] && allSheetValues[tablePosRow].length > 0);
 
                 if (needsHeaders) {
                     // Create headers
-                    const headers = [tableName];
-                    // The column headers are fixed in this case, but if they were dynamic,
-                    // they could be pulled from a configuration or adjusted.
+                    const headers = [tableName, '', '', '']; // Assuming 'Gas' table has 4 columns for direct data entry
                     columnHeaders = ['Date', 'Litres', 'Sum', 'Odometer'];
 
-                    // Determine the actual range for headers based on tablePosCol
                     const headerRange = String.fromCharCode(64 + tablePosCol) + tablePosRow;
 
                     await gapi.client.sheets.spreadsheets.values.update({
@@ -544,39 +547,75 @@
 
                     nextRow = tablePosRow + 2; // Data starts after the table name and headers
                 } else {
-                    // Refactoring point 1 & 2 & 4: Use allSheetValues to find column headers and next empty row
                     // If table name is found, and headers exist, extract them
-                    // Assuming headers are directly below the table name
                     columnHeaders = allSheetValues[tablePosRow] || [];
-                    const actualColumnCount = columnHeaders.length; // Dynamic column count
+                    const actualColumnCount = columnHeaders.length; // Dynamic column count based on existing headers
 
                     // Find next empty row by looking at the total size of the values array
-                    // The next available row for new data is the length of allSheetValues + 1,
-                    // as long as the table starts from the beginning of the fetched range.
-                    // If the table starts mid-sheet, we need to find the last row relative to the table's starting row.
                     let lastDataRow = tablePosRow + 1; // Start checking from after the headers
 
-                    // Iterate through the rows *after* the headers within the fetched `allSheetValues`
-                    // to find the last row with data related to this table.
                     for (let i = tablePosRow + 1; i < allSheetValues.length; i++) {
                         const row = allSheetValues[i];
                         // Check if the row has any non-empty cells within the expected table columns
+                        // Adjusting slice to consider potential empty cells up to the 'actualColumnCount'
                         if (row && row.slice(tablePosCol - 1, tablePosCol - 1 + actualColumnCount).some(cell => cell && cell.toString().trim() !== '')) {
-                            lastDataRow = i + 1; // Update last data row index
+                            lastDataRow = i + 1;
                         }
                     }
                     nextRow = lastDataRow + 1;
                 }
 
-                // Submit data
-                const newRowData = [date, litres, sum, odometer];
+                // Format the date before submission
+                const formattedDate = formatDateToDDMMYYYY(date);
 
+                // Prepare new row data for the first four columns
+                const newRowData = [formattedDate, litres, sum, odometer];
+                let rowDataToSubmit = newRowData;
+
+                // If there are existing data rows, try to copy formulas from the previous row
+                // The condition `nextRow > tablePosRow + 2` ensures there's at least one data row already present
+                // (tablePosRow is table name, tablePosRow + 1 is headers, tablePosRow + 2 is first data row)
+                if (!needsHeaders && nextRow > tablePosRow + 2) {
+                    const previousRow = nextRow - 1;
+                    // Assuming formulas are in columns E, F, G (5th, 6th, 7th columns after A, B, C, D)
+                    // The range should start from where the formulas begin. If table starts at A, E is the 5th column.
+                    const formulaStartCol = tablePosCol + 4; // A (1) + 4 = E (5)
+                    const formulaEndCol = formulaStartCol + 2; // E + 2 = G
+
+                    const formulaRange = `${sheetName}!${String.fromCharCode(64 + formulaStartCol)}${previousRow}:${String.fromCharCode(64 + formulaEndCol)}${previousRow}`;
+
+                    const formulaResponse = await gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: SPREADSHEET_ID,
+                        range: formulaRange,
+                        valueRenderOption: 'FORMULA', // Request formulas
+                    });
+
+                    const previousFormulas = formulaResponse.result.values ? formulaResponse.result.values[0] : [];
+
+                    if (previousFormulas.length > 0) {
+                        // Adjust formulas for the new row. This is a basic increment.
+                        // For more complex formulas, you might need a more sophisticated parser
+                        // or rely on Google Sheets' automatic adjustment upon paste.
+                        const newFormulas = previousFormulas.map(formula => {
+                            if (typeof formula === 'string' && formula.startsWith('=')) {
+                                // Simple regex to find numbers that look like row numbers and increment them by 1
+                                return formula.replace(/([A-Z]+)(\d+)/g, (match, colName, rowNumStr) => {
+                                    return colName + (parseInt(rowNumStr) + 1);
+                                });
+                            }
+                            return formula;
+                        });
+                        rowDataToSubmit = newRowData.concat(newFormulas);
+                    }
+                }
+
+                // Submit data
                 const submitResponse = await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${sheetName}!A${nextRow}`, // Submit to the correct next row
-                    valueInputOption: 'USER_ENTERED',
+                    range: `${sheetName}!A${nextRow}`, // Submit to the correct next row, starting from A column
+                    valueInputOption: 'USER_ENTERED', // Essential for formulas to be interpreted
                     resource: {
-                        values: [newRowData]
+                        values: [rowDataToSubmit]
                     }
                 });
 
@@ -584,6 +623,7 @@
 
             } catch (error) {
                 console.error('Error submitting gas data:', error);
+                // Assuming showStatus is defined elsewhere
                 showStatus('Error submitting data: ' + error.message, 'error');
                 return false;
             }
@@ -593,56 +633,59 @@
         async function submitMaintenanceData(date, description, sum, odometer) {
             const sheetName = 'Maintenance, taxes and others';
             const tableName = 'Maintenance';
-            
+
             try {
-                const tablePos = await findTableRange(sheetName, tableName);
-                
-                // Get table data
-                const tableDataResponse = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: SPREADSHEET_ID,
-                    range: `${sheetName}!A${tablePos.row}:D1000`,
-                });
-                
-                const tableData = tableDataResponse.result.values || [];
-                let nextRow = tablePos.row;
-                
-                // Check if needs headers
-                const needsHeaders = tableData.length === 0 || 
-                    (tableData.length === 1 && tableData[0][0] === tableName && tableData[0].length <= 1) ||
-                    (tableData.length < 2);
-                
+                const tableInfo = await findTableRange(sheetName, tableName);
+                const allSheetValues = tableInfo.allSheetValues;
+                const tablePosRow = tableInfo.row;
+                const tablePosCol = tableInfo.col;
+
+                let nextRow;
+                let columnHeaders = [];
+
+                // Refactored check for needsHeaders
+                const needsHeaders = !(allSheetValues[tablePosRow - 1] && allSheetValues[tablePosRow - 1][tablePosCol - 1] === tableName) ||
+                                    !(allSheetValues[tablePosRow] && allSheetValues[tablePosRow].length > 0);
+
                 if (needsHeaders) {
-                    // Create headers
-                    const headers = [tableName, '', '', ''];
-                    const columnHeaders = ['Date', 'Description', 'Sum', 'Odometer'];
-                    
+                    const headers = [tableName];
+                    columnHeaders = ['Date', 'Description', 'Sum', 'Odometer'];
+
+                    const headerRange = String.fromCharCode(64 + tablePosCol) + tablePosRow;
+
                     await gapi.client.sheets.spreadsheets.values.update({
                         spreadsheetId: SPREADSHEET_ID,
-                        range: `${sheetName}!A${tablePos.row}`,
+                        range: `${sheetName}!${headerRange}`,
                         valueInputOption: 'USER_ENTERED',
                         resource: {
                             values: [headers, columnHeaders]
                         }
                     });
-                    
-                    nextRow = tablePos.row + 2;
+
+                    nextRow = tablePosRow + 2;
                 } else {
-                    // Find next empty row
-                    let lastDataRow = tablePos.row + 1;
-                    
-                    for (let i = 0; i < tableData.length; i++) {
-                        const row = tableData[i];
-                        if (row && row.some(cell => cell && cell.toString().trim() !== '')) {
-                            lastDataRow = tablePos.row + i;
+                    // Extract column headers dynamically if they exist
+                    columnHeaders = allSheetValues[tablePosRow] || [];
+                    const actualColumnCount = columnHeaders.length;
+
+                    // Find next empty row by looking at the total size of the values array
+                    let lastDataRow = tablePosRow + 1;
+
+                    for (let i = tablePosRow + 1; i < allSheetValues.length; i++) {
+                        const row = allSheetValues[i];
+                        if (row && row.slice(tablePosCol - 1, tablePosCol - 1 + actualColumnCount).some(cell => cell && cell.toString().trim() !== '')) {
+                            lastDataRow = i + 1;
                         }
                     }
-                    
                     nextRow = lastDataRow + 1;
                 }
-                
-                // Submit data
-                const newRowData = [date, description, sum, odometer];
-                
+
+                // Format the date before submission
+                const formattedDate = formatDateToDDMMYYYY(date);
+
+                // Submit data (no formula copying for maintenance)
+                const newRowData = [formattedDate, description, sum, odometer];
+
                 const submitResponse = await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: SPREADSHEET_ID,
                     range: `${sheetName}!A${nextRow}`,
@@ -651,11 +694,12 @@
                         values: [newRowData]
                     }
                 });
-                
+
                 return submitResponse.status === 200;
-                
+
             } catch (error) {
                 console.error('Error submitting maintenance data:', error);
+                // Assuming showStatus is defined elsewhere
                 showStatus('Error submitting data: ' + error.message, 'error');
                 return false;
             }
