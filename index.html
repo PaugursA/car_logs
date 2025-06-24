@@ -415,16 +415,19 @@
                 // Find the table location
                 const tablePos = await findTableRange();
                 
-                // Check if this is a new table (needs headers)
-                const headerCheckResponse = await gapi.client.sheets.spreadsheets.values.get({
+                // Get a larger range around the table to find all existing data
+                const tableDataResponse = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${tablePos.row}:${String.fromCharCode(64 + tablePos.col + 4)}${tablePos.row + 1}`,
+                    range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${tablePos.row}:${String.fromCharCode(64 + tablePos.col + 4)}1000`,
                 });
                 
-                const existingData = headerCheckResponse.result.values || [];
-                const needsHeaders = !existingData.length || existingData[0][0] !== TABLE_NAME;
-                
+                const tableData = tableDataResponse.result.values || [];
                 let nextRow = tablePos.row;
+                
+                // Check if this is a new table (needs headers)
+                const needsHeaders = tableData.length === 0 || 
+                    (tableData.length === 1 && tableData[0][0] === TABLE_NAME && tableData[0].length <= 1) ||
+                    (tableData.length < 2);
                 
                 if (needsHeaders) {
                     // Create the table with headers
@@ -442,14 +445,18 @@
                     
                     nextRow = tablePos.row + 2;
                 } else {
-                    // Find the next empty row in the table
-                    const tableDataResponse = await gapi.client.sheets.spreadsheets.values.get({
-                        spreadsheetId: SPREADSHEET_ID,
-                        range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${tablePos.row}:${String.fromCharCode(64 + tablePos.col + 4)}1000`,
-                    });
+                    // Find the next empty row by looking for the last non-empty row
+                    let lastDataRow = tablePos.row + 1; // Start after the table title
                     
-                    const tableData = tableDataResponse.result.values || [];
-                    nextRow = tablePos.row + tableData.length;
+                    for (let i = 0; i < tableData.length; i++) {
+                        const row = tableData[i];
+                        // Check if this row has any data (not just empty cells)
+                        if (row && row.some(cell => cell && cell.toString().trim() !== '')) {
+                            lastDataRow = tablePos.row + i;
+                        }
+                    }
+                    
+                    nextRow = lastDataRow + 1;
                 }
                 
                 // Calculate price per gallon
