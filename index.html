@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Car Logs">
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRGF0YSBFbnRyeSBBcHAiLCJzaG9ydF9uYW1lIjoiRGF0YUVudHJ5IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjNhV1IwYUQwaU5qUWlJR2hsYVdkb2REMGlOalFpSUdacGJHdzlJaU0yTmpkbFpXRWlQanh5WldOMElIZzlJakl3SWlCNVBTSXlNQ0lpSUhkcFpIUm9QU0l5TkNJZ2FHVnBaMmgwUFNJeU5DSWdabWxzYkQwaUkzTmxkRzl2YmlJdlBqeDBaWGgwSUhnaklqTXlJaUI1UFNJek1pSWdkR1Y0ZEMxaGJtTm9iM0k5SW0xcFpHUnNaU0lnWm1sc2JEMGlJM1psYzJkc2QyaDBaU0krUkR3dmRHVjRkRDQ4TDNOMlp6ND0iLCJzaXplcyI6IjY0eDY0IiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV0sInN0YXJ0X3VybCI6Ii4vIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiIzY2N2VlYSJ9">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ2FyIExvZ3MgUFdBIiwic2hvcnRfbmFtZSI6IkNhckxvZ3MiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCM2FXUjBhRDBpTmpRaUlHaGxhV2RvZEQwaU5qUWlJR1pwYkd3OUlpTTJOamRsWldFaVBqeHlaV04wSUhnOUlqSXdJaUI1UFNJeU1DSWdkMmxrZEdnOUlqSTBJaUJvWldsbmFIUTlJakkwSWlCbWFXeHNQU0lqYzJWMGIyOXVhU0l2UGp4MFpYaDBJSGc5SWpNeUlpQjVQU0l6TWlJZ2RHVjRkQzFoYm1Ob2IzSTlJbTFwWkdSc1pTSWdabWxzYkQwaUkzWmxjMmRzZDJoMFpTSStRand2ZEdWNGRENG9MRE4yV3pvOCIsInNpemVzIjoiNjR4NjQiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XSwic3RhcnRfdXJsIjoiLi8iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjZmZmZmZmIiwidGhlbWVfY29sb3IiOiIjNjY3ZWVhIn0=">
     <style>
         * {
             margin: 0;
@@ -71,11 +71,11 @@
             transform: none;
         }
         
-        .form-section {
+        .main-section {
             display: none;
         }
         
-        .form-section.active {
+        .main-section.active {
             display: block;
         }
         
@@ -90,18 +90,24 @@
             font-weight: 600;
         }
         
-        input, select {
+        input, select, textarea {
             width: 100%;
             padding: 15px;
             border: 2px solid #e1e5e9;
             border-radius: 10px;
             font-size: 16px;
             transition: border-color 0.3s;
+            font-family: inherit;
         }
         
-        input:focus, select:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
         }
         
         .config-section {
@@ -155,6 +161,25 @@
             margin-left: 10px;
         }
         
+        .type-selector {
+            background: #f0f7ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .type-selector h3 {
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .form-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
         @media (max-width: 480px) {
             .container {
                 padding: 30px 20px;
@@ -165,12 +190,12 @@
 <body>
     <div class="container">
         <h1>
-            <span style="font-size: 24px; margin-right: 10px;">⛽</span>
-            Gas Log
+            <span style="font-size: 24px; margin-right: 10px;">🚗</span>
+            Car Logs
         </h1>
 
-        <!-- Configuration Section -->
-        <div class="config-section">
+        <!-- Configuration Section (shown before auth) -->
+        <div class="config-section" id="configSection">
             <h3>Configuration</h3>
             <div class="form-group">
                 <label for="clientId">OAuth Client ID:</label>
@@ -180,10 +205,6 @@
                 <label for="spreadsheetId">Spreadsheet ID:</label>
                 <input type="text" id="spreadsheetId" placeholder="Your Google Sheets ID">
             </div>
-            <div class="form-group">
-                <label for="tableName">Table Name:</label>
-                <input type="text" id="tableName" value="Gas" placeholder="Table name in the sheet">
-            </div>
         </div>
         
         <!-- Authentication Section -->
@@ -191,34 +212,85 @@
             <button id="authBtn" class="auth-btn">Sign in with Google</button>
         </div>
         
-        <!-- User Info -->
-        <div id="userInfo" class="user-info" style="display: none;">
-            <span id="userName"></span>
-            <button id="logoutBtn" class="logout-btn">Logout</button>
-        </div>
-        
-        <!-- Data Entry Form -->
-        <div class="form-section" id="formSection">
-            <form id="dataForm">
+        <!-- Main Section (shown after auth) -->
+        <div class="main-section" id="mainSection">
+            <!-- User Info -->
+            <div id="userInfo" class="user-info">
+                <span id="userName"></span>
+                <button id="logoutBtn" class="logout-btn">Logout</button>
+            </div>
+            
+            <!-- Log Type Selector -->
+            <div class="type-selector">
+                <h3>Select Log Type</h3>
                 <div class="form-group">
-                    <label for="gallons">Gallons:</label>
-                    <input type="number" id="gallons" name="gallons" step="0.01" required>
+                    <select id="logType">
+                        <option value="">Choose log type...</option>
+                        <option value="gas">⛽ Gas</option>
+                        <option value="maintenance">🔧 Maintenance</option>
+                    </select>
                 </div>
-                
-                <div class="form-group">
-                    <label for="cost">Total Cost ($):</label>
-                    <input type="number" id="cost" name="cost" step="0.01" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="odometer">Odometer Reading:</label>
-                    <input type="number" id="odometer" name="odometer" required>
-                </div>
-                
-                <button type="submit" class="submit-btn" id="submitBtn">
-                    Log Gas Fill-up
-                </button>
-            </form>
+            </div>
+            
+            <!-- Gas Form -->
+            <div class="form-container" id="gasForm" style="display: none;">
+                <h3 style="margin-bottom: 20px; color: #333;">⛽ Gas Log Entry</h3>
+                <form id="gasDataForm">
+                    <div class="form-group">
+                        <label for="gasDate">Date:</label>
+                        <input type="date" id="gasDate" name="gasDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="litres">Litres:</label>
+                        <input type="number" id="litres" name="litres" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gasSum">Sum:</label>
+                        <input type="number" id="gasSum" name="gasSum" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="gasOdometer">Odometer:</label>
+                        <input type="number" id="gasOdometer" name="gasOdometer" required>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="gasSubmitBtn">
+                        Log Gas Entry
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Maintenance Form -->
+            <div class="form-container" id="maintenanceForm" style="display: none;">
+                <h3 style="margin-bottom: 20px; color: #333;">🔧 Maintenance Log Entry</h3>
+                <form id="maintenanceDataForm">
+                    <div class="form-group">
+                        <label for="maintenanceDate">Date:</label>
+                        <input type="date" id="maintenanceDate" name="maintenanceDate" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Description:</label>
+                        <textarea id="description" name="description" placeholder="Describe the maintenance work..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="maintenanceSum">Sum:</label>
+                        <input type="number" id="maintenanceSum" name="maintenanceSum" step="0.01" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="maintenanceOdometer">Odometer:</label>
+                        <input type="number" id="maintenanceOdometer" name="maintenanceOdometer" required>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="maintenanceSubmitBtn">
+                        Log Maintenance Entry
+                    </button>
+                </form>
+            </div>
         </div>
         
         <div id="status" class="status" style="display: none;"></div>
@@ -232,8 +304,6 @@
         // Configuration
         let CLIENT_ID = '';
         let SPREADSHEET_ID = '';
-        let SHEET_NAME = 'Gas';
-        let TABLE_NAME = 'Gas';
         
         // Global variables
         let gapi_loaded = false;
@@ -244,43 +314,55 @@
         // DOM elements
         const authBtn = document.getElementById('authBtn');
         const logoutBtn = document.getElementById('logoutBtn');
-        const formSection = document.getElementById('formSection');
+        const configSection = document.getElementById('configSection');
         const authSection = document.getElementById('authSection');
+        const mainSection = document.getElementById('mainSection');
         const userInfo = document.getElementById('userInfo');
-        const form = document.getElementById('dataForm');
-        const submitBtn = document.getElementById('submitBtn');
+        const logTypeSelect = document.getElementById('logType');
+        const gasForm = document.getElementById('gasForm');
+        const maintenanceForm = document.getElementById('maintenanceForm');
+        const gasDataForm = document.getElementById('gasDataForm');
+        const maintenanceDataForm = document.getElementById('maintenanceDataForm');
+        const gasSubmitBtn = document.getElementById('gasSubmitBtn');
+        const maintenanceSubmitBtn = document.getElementById('maintenanceSubmitBtn');
         const status = document.getElementById('status');
         
         // Configuration inputs
         const clientIdInput = document.getElementById('clientId');
         const spreadsheetIdInput = document.getElementById('spreadsheetId');
-        const tableNameInput = document.getElementById('tableName');
         
         // Load configuration from localStorage
         function loadConfig() {
-            CLIENT_ID = clientIdInput.value || '';
-            SPREADSHEET_ID = spreadsheetIdInput.value || '';
-            TABLE_NAME = tableNameInput.value || 'Gas';
+            CLIENT_ID = localStorage.getItem('clientId') || '';
+            SPREADSHEET_ID = localStorage.getItem('spreadsheetId') || '';
             
             clientIdInput.value = CLIENT_ID;
             spreadsheetIdInput.value = SPREADSHEET_ID;
-            tableNameInput.value = TABLE_NAME;
         }
         
         // Save configuration to localStorage
         function saveConfig() {
             CLIENT_ID = clientIdInput.value.trim();
             SPREADSHEET_ID = spreadsheetIdInput.value.trim();
-            TABLE_NAME = tableNameInput.value.trim() || 'Gas';
+            
+            localStorage.setItem('clientId', CLIENT_ID);
+            localStorage.setItem('spreadsheetId', SPREADSHEET_ID);
         }
         
         // Save config when inputs change
-        [clientIdInput, spreadsheetIdInput, tableNameInput].forEach(input => {
+        [clientIdInput, spreadsheetIdInput].forEach(input => {
             input.addEventListener('change', saveConfig);
         });
         
         // Initialize
         loadConfig();
+        
+        // Set today's date as default
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('gasDate').value = today;
+            document.getElementById('maintenanceDate').value = today;
+        }
         
         // Load Google APIs
         function gapiLoaded() {
@@ -308,8 +390,8 @@
         
         // Authentication
         function handleAuthClick() {
-            if (!CLIENT_ID) {
-                showStatus('Please enter your OAuth Client ID first', 'error');
+            if (!CLIENT_ID || !SPREADSHEET_ID) {
+                showStatus('Please enter both OAuth Client ID and Spreadsheet ID', 'error');
                 return;
             }
             
@@ -340,10 +422,13 @@
             // Get user info
             getUserInfo();
             
-            // Show form, hide auth
+            // Show main section, hide config and auth
+            configSection.style.display = 'none';
             authSection.style.display = 'none';
-            formSection.classList.add('active');
-            userInfo.style.display = 'block';
+            mainSection.classList.add('active');
+            
+            // Set default dates
+            setDefaultDates();
         }
         
         async function getUserInfo() {
@@ -368,19 +453,35 @@
             }
             
             access_token = null;
+            configSection.style.display = 'block';
             authSection.style.display = 'block';
-            formSection.classList.remove('active');
-            userInfo.style.display = 'none';
-            form.reset();
+            mainSection.classList.remove('active');
+            gasDataForm.reset();
+            maintenanceDataForm.reset();
+            logTypeSelect.value = '';
+            gasForm.style.display = 'none';
+            maintenanceForm.style.display = 'none';
         }
         
-        // Find the table range in the Gas sheet
-        async function findTableRange() {
+        // Handle log type selection
+        logTypeSelect.addEventListener('change', function() {
+            gasForm.style.display = 'none';
+            maintenanceForm.style.display = 'none';
+            
+            if (this.value === 'gas') {
+                gasForm.style.display = 'block';
+            } else if (this.value === 'maintenance') {
+                maintenanceForm.style.display = 'block';
+            }
+        });
+        
+        // Find the table range in the specified sheet
+        async function findTableRange(sheetName, tableName) {
             try {
-                // First, get all data from the Gas sheet
+                // Get all data from the sheet
                 const response = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${SHEET_NAME}!A1:Z1000`, // Get a large range to find the table
+                    range: `${sheetName}!A1:Z1000`,
                 });
                 
                 const values = response.result.values || [];
@@ -388,14 +489,13 @@
                 // Look for the table by name
                 for (let i = 0; i < values.length; i++) {
                     for (let j = 0; j < (values[i] || []).length; j++) {
-                        if (values[i][j] === TABLE_NAME) {
-                            // Found the table, return the position
+                        if (values[i][j] === tableName) {
                             return { row: i + 1, col: j + 1 };
                         }
                     }
                 }
                 
-                // If table not found, we'll create it at A1
+                // If table not found, create it at A1
                 return { row: 1, col: 1 };
                 
             } catch (error) {
@@ -404,39 +504,36 @@
             }
         }
         
-        // Submit data to the Gas table
-        async function submitData(gallons, cost, odometer) {
-            if (!SPREADSHEET_ID) {
-                showStatus('Please enter your Spreadsheet ID first', 'error');
-                return false;
-            }
+        // Submit gas data
+        async function submitGasData(date, litres, sum, odometer) {
+            const sheetName = 'Gas';
+            const tableName = 'Gas';
             
             try {
-                // Find the table location
-                const tablePos = await findTableRange();
+                const tablePos = await findTableRange(sheetName, tableName);
                 
-                // Get a larger range around the table to find all existing data
+                // Get table data
                 const tableDataResponse = await gapi.client.sheets.spreadsheets.values.get({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${tablePos.row}:${String.fromCharCode(64 + tablePos.col + 4)}1000`,
+                    range: `${sheetName}!A${tablePos.row}:D1000`,
                 });
                 
                 const tableData = tableDataResponse.result.values || [];
                 let nextRow = tablePos.row;
                 
-                // Check if this is a new table (needs headers)
+                // Check if needs headers
                 const needsHeaders = tableData.length === 0 || 
-                    (tableData.length === 1 && tableData[0][0] === TABLE_NAME && tableData[0].length <= 1) ||
+                    (tableData.length === 1 && tableData[0][0] === tableName && tableData[0].length <= 1) ||
                     (tableData.length < 2);
                 
                 if (needsHeaders) {
-                    // Create the table with headers
-                    const headers = [TABLE_NAME, '', '', '', ''];  // Table name spans first row
-                    const columnHeaders = ['Date', 'Gallons', 'Total Cost', 'Odometer', 'Price/Gallon'];
+                    // Create headers
+                    const headers = [tableName, '', '', ''];
+                    const columnHeaders = ['Date', 'Litres', 'Sum', 'Odometer'];
                     
                     await gapi.client.sheets.spreadsheets.values.update({
                         spreadsheetId: SPREADSHEET_ID,
-                        range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${tablePos.row}`,
+                        range: `${sheetName}!A${tablePos.row}`,
                         valueInputOption: 'USER_ENTERED',
                         resource: {
                             values: [headers, columnHeaders]
@@ -445,12 +542,11 @@
                     
                     nextRow = tablePos.row + 2;
                 } else {
-                    // Find the next empty row by looking for the last non-empty row
-                    let lastDataRow = tablePos.row + 1; // Start after the table title
+                    // Find next empty row
+                    let lastDataRow = tablePos.row + 1;
                     
                     for (let i = 0; i < tableData.length; i++) {
                         const row = tableData[i];
-                        // Check if this row has any data (not just empty cells)
                         if (row && row.some(cell => cell && cell.toString().trim() !== '')) {
                             lastDataRow = tablePos.row + i;
                         }
@@ -459,22 +555,12 @@
                     nextRow = lastDataRow + 1;
                 }
                 
-                // Calculate price per gallon
-                const pricePerGallon = (cost / gallons).toFixed(3);
+                // Submit data
+                const newRowData = [date, litres, sum, odometer];
                 
-                // Prepare the new row data
-                const newRowData = [
-                    new Date().toLocaleDateString(),
-                    gallons,
-                    cost,
-                    odometer,
-                    pricePerGallon
-                ];
-                
-                // Submit the data
                 const submitResponse = await gapi.client.sheets.spreadsheets.values.update({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: `${SHEET_NAME}!${String.fromCharCode(64 + tablePos.col)}${nextRow}`,
+                    range: `${sheetName}!A${nextRow}`,
                     valueInputOption: 'USER_ENTERED',
                     resource: {
                         values: [newRowData]
@@ -484,37 +570,140 @@
                 return submitResponse.status === 200;
                 
             } catch (error) {
-                console.error('Error submitting data:', error);
+                console.error('Error submitting gas data:', error);
                 showStatus('Error submitting data: ' + error.message, 'error');
                 return false;
             }
         }
         
-        // Form submission
-        form.addEventListener('submit', async (e) => {
+        // Submit maintenance data
+        async function submitMaintenanceData(date, description, sum, odometer) {
+            const sheetName = 'Maintenance, taxes and others';
+            const tableName = 'Maintenance';
+            
+            try {
+                const tablePos = await findTableRange(sheetName, tableName);
+                
+                // Get table data
+                const tableDataResponse = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `${sheetName}!A${tablePos.row}:D1000`,
+                });
+                
+                const tableData = tableDataResponse.result.values || [];
+                let nextRow = tablePos.row;
+                
+                // Check if needs headers
+                const needsHeaders = tableData.length === 0 || 
+                    (tableData.length === 1 && tableData[0][0] === tableName && tableData[0].length <= 1) ||
+                    (tableData.length < 2);
+                
+                if (needsHeaders) {
+                    // Create headers
+                    const headers = [tableName, '', '', ''];
+                    const columnHeaders = ['Date', 'Description', 'Sum', 'Odometer'];
+                    
+                    await gapi.client.sheets.spreadsheets.values.update({
+                        spreadsheetId: SPREADSHEET_ID,
+                        range: `${sheetName}!A${tablePos.row}`,
+                        valueInputOption: 'USER_ENTERED',
+                        resource: {
+                            values: [headers, columnHeaders]
+                        }
+                    });
+                    
+                    nextRow = tablePos.row + 2;
+                } else {
+                    // Find next empty row
+                    let lastDataRow = tablePos.row + 1;
+                    
+                    for (let i = 0; i < tableData.length; i++) {
+                        const row = tableData[i];
+                        if (row && row.some(cell => cell && cell.toString().trim() !== '')) {
+                            lastDataRow = tablePos.row + i;
+                        }
+                    }
+                    
+                    nextRow = lastDataRow + 1;
+                }
+                
+                // Submit data
+                const newRowData = [date, description, sum, odometer];
+                
+                const submitResponse = await gapi.client.sheets.spreadsheets.values.update({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: `${sheetName}!A${nextRow}`,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: {
+                        values: [newRowData]
+                    }
+                });
+                
+                return submitResponse.status === 200;
+                
+            } catch (error) {
+                console.error('Error submitting maintenance data:', error);
+                showStatus('Error submitting data: ' + error.message, 'error');
+                return false;
+            }
+        }
+        
+        // Gas form submission
+        gasDataForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const gallons = parseFloat(document.getElementById('gallons').value);
-            const cost = parseFloat(document.getElementById('cost').value);
-            const odometer = parseInt(document.getElementById('odometer').value);
+            const date = document.getElementById('gasDate').value;
+            const litres = parseFloat(document.getElementById('litres').value);
+            const sum = parseFloat(document.getElementById('gasSum').value);
+            const odometer = parseInt(document.getElementById('gasOdometer').value);
             
-            if (!gallons || !cost || !odometer) {
+            if (!date || !litres || !sum || !odometer) {
                 showStatus('Please fill in all fields', 'error');
                 return;
             }
             
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Logging...';
+            gasSubmitBtn.disabled = true;
+            gasSubmitBtn.textContent = 'Logging...';
             
-            const success = await submitData(gallons, cost, odometer);
+            const success = await submitGasData(date, litres, sum, odometer);
             
             if (success) {
-                showStatus('Gas fill-up logged successfully! ⛽', 'success');
-                form.reset();
+                showStatus('Gas entry logged successfully! ⛽', 'success');
+                gasDataForm.reset();
+                setDefaultDates();
             }
             
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Log Gas Fill-up';
+            gasSubmitBtn.disabled = false;
+            gasSubmitBtn.textContent = 'Log Gas Entry';
+        });
+        
+        // Maintenance form submission
+        maintenanceDataForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('maintenanceDate').value;
+            const description = document.getElementById('description').value.trim();
+            const sum = parseFloat(document.getElementById('maintenanceSum').value);
+            const odometer = parseInt(document.getElementById('maintenanceOdometer').value);
+            
+            if (!date || !description || !sum || !odometer) {
+                showStatus('Please fill in all fields', 'error');
+                return;
+            }
+            
+            maintenanceSubmitBtn.disabled = true;
+            maintenanceSubmitBtn.textContent = 'Logging...';
+            
+            const success = await submitMaintenanceData(date, description, sum, odometer);
+            
+            if (success) {
+                showStatus('Maintenance entry logged successfully! 🔧', 'success');
+                maintenanceDataForm.reset();
+                setDefaultDates();
+            }
+            
+            maintenanceSubmitBtn.disabled = false;
+            maintenanceSubmitBtn.textContent = 'Log Maintenance Entry';
         });
         
         function showStatus(message, type) {
