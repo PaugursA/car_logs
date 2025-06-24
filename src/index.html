@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Sheet Sender</title>
+    <!-- Favicon for PWA -->
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/007bff/ffffff?text=PWA">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SheetSender">
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        /* Custom styling for better mobile appearance */
+        .container {
+            max-width: 600px;
+        }
+        input, textarea, button {
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="container bg-white p-8 shadow-xl rounded-lg w-full">
+        <h1 class="text-3xl font-bold text-center text-blue-700 mb-6">Personal Data Logger</h1>
+
+        <div id="auth-status" class="text-center mb-4">
+            <p id="sign-in-message" class="text-red-500 font-semibold hidden">Please sign in to Google to use the app.</p>
+            <button id="authorize_button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75" style="display: none;">
+                Authorize
+            </button>
+            <button id="signout_button" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-75" style="display: none;">
+                Sign Out
+            </button>
+        </div>
+
+        <form id="data-form" class="space-y-4" style="display: none;">
+            <div>
+                <label for="date" class="block text-gray-700 text-sm font-semibold mb-1">Date:</label>
+                <input type="date" id="date" name="date" class="w-full p-3 border border-gray-300 focus:ring-2 focus:ring-blue-300 focus:border-blue-300 outline-none" required>
+            </div>
+            <div>
+                <label for="item" class="block text-gray-700 text-sm font-semibold mb-1">Item:</label>
+                <input type="text" id="item" name="item" class="w-full p-3 border border-gray-300 focus:ring-2 focus:ring-blue-300 focus:border-blue-300 outline-none" placeholder="e.g., Groceries, Project X Task" required>
+            </div>
+            <div>
+                <label for="amount" class="block text-gray-700 text-sm font-semibold mb-1">Amount/Value:</label>
+                <input type="number" id="amount" name="amount" step="0.01" class="w-full p-3 border border-gray-300 focus:ring-2 focus:ring-blue-300 focus:border-blue-300 outline-none" placeholder="e.g., 50.25, 10" required>
+            </div>
+            <div>
+                <label for="notes" class="block text-gray-700 text-sm font-semibold mb-1">Notes (Optional):</label>
+                <textarea id="notes" name="notes" rows="3" class="w-full p-3 border border-gray-300 focus:ring-2 focus:ring-blue-300 focus:border-blue-300 outline-none resize-y" placeholder="Any additional details"></textarea>
+            </div>
+
+            <button type="submit" id="submit-button" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75">
+                <span id="button-text">Send to Google Sheet</span>
+                <span id="loading-spinner" class="hidden animate-spin inline-block h-5 w-5 border-4 border-white border-t-transparent rounded-full ml-2"></span>
+            </button>
+        </form>
+
+        <div id="message-box" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 hidden">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm text-center">
+                <p id="message-text" class="text-lg mb-4"></p>
+                <button id="message-ok-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google API Client Library -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <script>
+        // --- Configuration (REPLACE THESE WITH YOUR OWN VALUES) ---
+        const API_KEY = 'AIzaSyBmdw1Lq-heDMSAmXshKb3w76idVZRp8tY'; // From Google Cloud Console -> APIs & Services -> Credentials -> API Key
+        const CLIENT_ID = '879791151789-a2uiu6aile76e0022pdcd3kbiv8p3i5p.apps.googleusercontent.com'; // From Google Cloud Console -> APIs & Services -> Credentials -> OAuth 2.0 Client IDs
+        const SPREADSHEET_ID = '1NvMYHnT0IGm_xAYEVTxMDCaQ-d76GNf0fBMlBH-njvk'; // The ID from your Google Sheet URL
+        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets'; // Scope for modifying spreadsheets
+
+        // --- DOM Elements ---
+        const authorizeButton = document.getElementById('authorize_button');
+        const signoutButton = document.getElementById('signout_button');
+        const dataForm = document.getElementById('data-form');
+        const signInMessage = document.getElementById('sign-in-message');
+        const submitButton = document.getElementById('submit-button');
+        const buttonText = document.getElementById('button-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageOkButton = document.getElementById('message-ok-button');
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        /**
+         * Shows a custom message box.
+         * @param {string} message The message to display.
+         */
+        function showMessageBox(message) {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the custom message box.
+         */
+        function hideMessageBox() {
+            messageBox.classList.add('hidden');
+        }
+
+        /**
+         * Callback after api.js is loaded.
+         */
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        /**
+         * Callback after gis.js is loaded.
+         */
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // Will be set in requestAccessToken
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        /**
+         * Initializes the Google API client.
+         */
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: ['https://sheets.googleapis.com/$discovery/rest?version=v4'],
+                });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (err) {
+                console.error('Error initializing GAPI client:', err);
+                showMessageBox('Error initializing Google API. Please check your API Key and network connection.');
+            }
+        }
+
+        /**
+         * Checks if both gapi and gis are loaded and enables/disables buttons accordingly.
+         */
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                authorizeButton.style.display = 'block';
+                // Check if user is already signed in (if token is in session storage, for instance)
+                // In a real PWA, you might persist auth state more robustly.
+                const storedToken = sessionStorage.getItem('google_access_token');
+                if (storedToken) {
+                    gapi.client.setToken({ access_token: storedToken });
+                    updateSigninStatus(true); // Assume signed in
+                } else {
+                    updateSigninStatus(false);
+                }
+            }
+        }
+
+        /**
+         * Shows/hides the appropriate UI elements based on the sign-in status.
+         * @param {boolean} isSignedIn Whether the user is signed in.
+         */
+        function updateSigninStatus(isSignedIn) {
+            if (isSignedIn) {
+                authorizeButton.style.display = 'none';
+                signoutButton.style.display = 'block';
+                dataForm.style.display = 'block';
+                signInMessage.classList.add('hidden');
+            } else {
+                authorizeButton.style.display = 'block';
+                signoutButton.style.display = 'none';
+                dataForm.style.display = 'none';
+                signInMessage.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Starts the OAuth 2.0 authorization flow.
+         */
+        function handleAuthClick() {
+            if (!tokenClient) {
+                console.error('Token client not initialized.');
+                showMessageBox('Authentication system not ready. Please try again.');
+                return;
+            }
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    console.error('Authentication error:', resp.error);
+                    showMessageBox(`Authentication failed: ${resp.error_description || resp.error}. Please try again.`);
+                    updateSigninStatus(false);
+                    return;
+                }
+                sessionStorage.setItem('google_access_token', resp.access_token);
+                updateSigninStatus(true);
+            };
+
+            // It's important to clear any existing token if re-authorizing
+            gapi.client.setToken('');
+            tokenClient.requestAccessToken({prompt: 'consent'}); // 'consent' forces re-prompt for permissions
+        }
+
+        /**
+         * Signs out the user.
+         */
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    sessionStorage.removeItem('google_access_token');
+                    gapi.client.setToken('');
+                    updateSigninStatus(false);
+                    showMessageBox('You have been signed out.');
+                });
+            }
+        }
+
+        /**
+         * Appends a row of data to the Google Sheet.
+         * @param {Array<string>} rowData An array of strings representing the row to append.
+         */
+        async function appendRow(rowData) {
+            submitButton.disabled = true;
+            buttonText.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+
+            try {
+                const response = await gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: 'Gas', // You can change this to your sheet name, e.g., 'Sheet1!A1'
+                    valueInputOption: 'USER_ENTERED',
+                    insertDataOption: 'INSERT_ROWS',
+                    resource: {
+                        values: [rowData],
+                    },
+                });
+                console.log('Sheet update response:', response.result);
+                showMessageBox('Data successfully sent to Google Sheet!');
+                dataForm.reset(); // Clear form after successful submission
+            } catch (err) {
+                console.error('Error appending to sheet:', err);
+                let errorMessage = 'Failed to send data. Please check your Spreadsheet ID and permissions.';
+                if (err.result && err.result.error) {
+                    errorMessage += ` Error: ${err.result.error.message}`;
+                }
+                showMessageBox(errorMessage);
+                // If it's an authorization error, prompt for re-auth
+                if (err.status === 401 || err.status === 403) {
+                    updateSigninStatus(false); // Force re-authorization
+                    showMessageBox('Your session expired or permissions are insufficient. Please authorize again.');
+                }
+            } finally {
+                submitButton.disabled = false;
+                buttonText.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // --- Event Listeners ---
+        authorizeButton.addEventListener('click', handleAuthClick);
+        signoutButton.addEventListener('click', handleSignoutClick);
+        messageOkButton.addEventListener('click', hideMessageBox);
+
+        dataForm.addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const date = document.getElementById('date').value;
+            const item = document.getElementById('item').value;
+            const amount = document.getElementById('amount').value;
+            const notes = document.getElementById('notes').value;
+
+            if (!date || !item || !amount) {
+                showMessageBox('Please fill in all required fields (Date, Item, Amount).');
+                return;
+            }
+
+            const rowData = [date, item, amount, notes];
+            appendRow(rowData);
+        });
+
+        // Initialize with current date for convenience
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('date').value = `${year}-${month}-${day}`;
+        });
+
+        // --- Service Worker for PWA functionality ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
