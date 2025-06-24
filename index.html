@@ -457,6 +457,14 @@
                 maintenanceForm.style.display = 'block';
             }
         });
+
+        // Add this block to automatically show gasForm if gas is the default selected
+        // This should run after the DOM is loaded and logTypeSelect value is set.
+        document.addEventListener('DOMContentLoaded', (event) => {
+            if (logTypeSelect.value === 'gas') {
+                gasForm.style.display = 'block';
+            }
+        });
         
         // Helper function for date formatting
         function formatDateToDDMMYYYY(dateString) {
