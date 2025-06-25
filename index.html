@@ -248,12 +248,12 @@
                     
                     <div class="form-group">
                         <label for="litres">Litres:</label>
-                        <input type="number" id="litres" name="litres" step="0.01" required>
+                        <input type="number" id="litres" name="litres" step="5" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="gasSum">Sum:</label>
-                        <input type="number" id="gasSum" name="gasSum" step="0.01" required>
+                        <input type="number" id="gasSum" name="gasSum" placeholder="EUR"step="10" required>
                     </div>
                     
                     <div class="form-group">
@@ -283,7 +283,7 @@
                     
                     <div class="form-group">
                         <label for="maintenanceSum">Sum:</label>
-                        <input type="number" id="maintenanceSum" name="maintenanceSum" step="0.01" required>
+                        <input type="number" id="maintenanceSum" name="maintenanceSum" placeholder="EUR" step="50" required>
                     </div>
                     
                     <div class="form-group">
@@ -507,7 +507,7 @@
             }
         }
 
-        // Submit gas data
+                // Submit gas data
         async function submitGasData(date, litres, sum, odometer) {
             const sheetName = 'Gas';
             const tableName = 'Gas';
@@ -615,13 +615,13 @@
                     }
                 });
 
-                return submitResponse.status === 200;
+                return { success: submitResponse.status === 200, row: nextRow };
 
             } catch (error) {
                 console.error('Error submitting gas data:', error);
                 // Assuming showStatus is defined elsewhere
                 showStatus('Error submitting data: ' + error.message, 'error');
-                return false;
+                return { success: false, row: null };
             }
         }
         
@@ -691,13 +691,13 @@
                     }
                 });
 
-                return submitResponse.status === 200;
+                return { success: submitResponse.status === 200, row: nextRow };
 
             } catch (error) {
                 console.error('Error submitting maintenance data:', error);
                 // Assuming showStatus is defined elsewhere
                 showStatus('Error submitting data: ' + error.message, 'error');
-                return false;
+                return { success: false, row: null };
             }
         }
         
@@ -718,10 +718,10 @@
             gasSubmitBtn.disabled = true;
             gasSubmitBtn.textContent = 'Logging...';
             
-            const success = await submitGasData(date, litres, sum, odometer);
+            const submitResponse = await submitGasData(date, litres, sum, odometer);
             
-            if (success) {
-                showStatus('Gas entry logged successfully! ⛽', 'success');
+            if (submitResponse.success) {
+                showStatus('Entry logged successfully at row ' + submitResponse.row + '! ⛽', 'success');
                 gasDataForm.reset();
                 setDefaultDates();
             }
@@ -747,10 +747,10 @@
             maintenanceSubmitBtn.disabled = true;
             maintenanceSubmitBtn.textContent = 'Logging...';
             
-            const success = await submitMaintenanceData(date, description, sum, odometer);
+            const submitResponse = await submitMaintenanceData(date, description, sum, odometer);
             
-            if (success) {
-                showStatus('Maintenance entry logged successfully! 🔧', 'success');
+            if (submitResponse.success) {
+                showStatus('Entry logged successfully at row ' + submitResponse.row + '! 🔧', 'success');
                 maintenanceDataForm.reset();
                 setDefaultDates();
             }
