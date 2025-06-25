@@ -743,7 +743,7 @@
 
                 // Filter by selected year
                 const filtered = [tableInfo.allSheetValues[tableInfo.row]] // headers row
-                    .concat(validRows.filter(row => row[0].endsWith(`.${selectedYear}`)));
+                    .concat(values.filter(row => row[0].endsWith(`.${selectedYear}`)));
 
                 displayTable(filtered);
             } catch (error) {
