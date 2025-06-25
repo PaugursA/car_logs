@@ -301,14 +301,10 @@
             <div class="form-container" id="pastDataContainer">
                 <h3 style="margin-bottom: 20px; color: #333;">📊 Past Entries</h3>
                 
-                <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 10px;">
                     <label for="yearSelector">Select Year:</label>
-                    <select id="yearSelector">
-                        <option value="2025" selected>2025</option>
-                        <option value="2024">2024</option>
-                        <option value="2023">2023</option>
-                        <!-- Add more years as needed -->
-                    </select>
+                    <select id="yearSelector"></select>
+                    <span id="totalDisplay" style="font-weight: bold;">Total: 0</span>
                 </div>
 
                 <div id="dataTable" style="overflow-x:auto; max-height: 200px; overflow-y: auto; margin-top: 20px;">
@@ -483,6 +479,9 @@
             } else if (this.value === 'maintenance') {
                 maintenanceForm.style.display = 'block';
             }
+             // This ensures the past data updates
+            loadFilteredData();
+
         });
 
         // Add this block to automatically show gasForm if gas is the default selected
@@ -734,17 +733,42 @@
                 const tableInfo = await findTableRange(sheetName, tableName);
                 const startRow = tableInfo.row + 2; // Skip table name and headers
                 const values = tableInfo.allSheetValues.slice(startRow - 1);
+                
+                // Extract all years from the first column
+                const years = [...new Set(values.map(row => row[0].split('.')[2]))].sort((a, b) => b - a);
 
-                const filtered = values.filter(row => {
-                    if (!row[0]) return false;
-                    const [day, month, year] = row[0].split('.');
-                    return year === selectedYear;
-                });
+                populateYearSelector(years);
+
+                const selectedYear = document.getElementById('yearSelector').value;
+
+                // Filter by selected year
+                const filtered = [tableInfo.allSheetValues[tableInfo.row]] // headers row
+                    .concat(validRows.filter(row => row[0].endsWith(`.${selectedYear}`)));
 
                 displayTable(filtered);
             } catch (error) {
                 console.error('Error loading past data:', error);
                 showStatus('Error loading past data', 'error');
+            }
+        }
+        
+        function populateYearSelector(years) {
+            const yearSelector = document.getElementById('yearSelector');
+            const currentValue = yearSelector.value;
+            yearSelector.innerHTML = '';
+
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelector.appendChild(option);
+            });
+
+            // Restore selection or default to latest
+            if (years.includes(currentValue)) {
+                yearSelector.value = currentValue;
+            } else {
+                yearSelector.value = years[0]; // latest year
             }
         }
 
@@ -753,22 +777,59 @@
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
 
-            rows.forEach(row => {
+            // If no rows, show a message
+            if (!rows.length) {
+                document.getElementById('dataTable').innerHTML = '<p style="color: #555;">No entries for selected year.</p>';
+                document.getElementById('totalDisplay').textContent = 'Total: 0';
+                return;
+            }
+
+            // Add headers (assumes second row after table name contains headers)
+            const headers = rows[0]; // first row as headers
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                th.style.background = '#eee';
+                th.style.border = '1px solid #ccc';
+                th.style.padding = '5px';
+                th.style.fontSize = '14px';
+                th.style.fontWeight = 'bold';
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Add data rows (start from index 1 to skip headers)
+            const tbody = document.createElement('tbody');
+            let sum = 0;
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
                 const tr = document.createElement('tr');
-                row.forEach(cell => {
+                row.forEach((cell, idx) => {
                     const td = document.createElement('td');
                     td.textContent = cell;
                     td.style.border = '1px solid #ccc';
                     td.style.padding = '5px';
                     td.style.fontSize = '14px';
                     tr.appendChild(td);
+
+                    // Accumulate sum of third column (index 2)
+                    if (idx === 2) {
+                        const val = parseFloat(cell.toString().replace(',', '.'));
+                        if (!isNaN(val)) sum += val;
+                    }
                 });
-                table.appendChild(tr);
-            });
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
 
             const dataTable = document.getElementById('dataTable');
             dataTable.innerHTML = '';
             dataTable.appendChild(table);
+
+            document.getElementById('totalDisplay').textContent = 'Total: ' + sum.toFixed(2) + ' €';
         }
 
         // Gas form submission
@@ -794,6 +855,7 @@
                 showStatus('Entry logged successfully at row ' + submitResponse.row + '! ⛽', 'success');
                 gasDataForm.reset();
                 setDefaultDates();
+                loadFilteredData();
             }
             
             gasSubmitBtn.disabled = false;
@@ -823,6 +885,7 @@
                 showStatus('Entry logged successfully at row ' + submitResponse.row + '! 🔧', 'success');
                 maintenanceDataForm.reset();
                 setDefaultDates();
+                loadFilteredData();
             }
             
             maintenanceSubmitBtn.disabled = false;
