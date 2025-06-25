@@ -296,6 +296,26 @@
                     </button>
                 </form>
             </div>
+
+            <!-- Year Selector and Past Data Container -->
+            <div class="form-container" id="pastDataContainer">
+                <h3 style="margin-bottom: 20px; color: #333;">📊 Past Entries</h3>
+                
+                <div class="form-group">
+                    <label for="yearSelector">Select Year:</label>
+                    <select id="yearSelector">
+                        <option value="2025" selected>2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <!-- Add more years as needed -->
+                    </select>
+                </div>
+
+                <div id="dataTable" style="overflow-x:auto; max-height: 200px; overflow-y: auto; margin-top: 20px;">
+                    <!-- Filtered data will appear here -->
+                </div>
+            </div>
+
         </div>
         
         <div id="status" class="status" style="display: none;"></div>
@@ -431,6 +451,8 @@
             
             // Set default dates
             setDefaultDates();
+            // Load initial data
+            loadFilteredData();
         }
         
         function handleSignoutClick() {
@@ -701,6 +723,54 @@
             }
         }
         
+        document.getElementById('yearSelector').addEventListener('change', loadFilteredData);
+
+        async function loadFilteredData() {
+            const selectedYear = document.getElementById('yearSelector').value;
+            const sheetName = logTypeSelect.value === 'gas' ? 'Gas' : 'Maintenance, taxes and others';
+            const tableName = logTypeSelect.value === 'gas' ? 'Gas' : 'Maintenance';
+            
+            try {
+                const tableInfo = await findTableRange(sheetName, tableName);
+                const startRow = tableInfo.row + 2; // Skip table name and headers
+                const values = tableInfo.allSheetValues.slice(startRow - 1);
+
+                const filtered = values.filter(row => {
+                    if (!row[0]) return false;
+                    const [day, month, year] = row[0].split('.');
+                    return year === selectedYear;
+                });
+
+                displayTable(filtered);
+            } catch (error) {
+                console.error('Error loading past data:', error);
+                showStatus('Error loading past data', 'error');
+            }
+        }
+
+        function displayTable(rows) {
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.textContent = cell;
+                    td.style.border = '1px solid #ccc';
+                    td.style.padding = '5px';
+                    td.style.fontSize = '14px';
+                    tr.appendChild(td);
+                });
+                table.appendChild(tr);
+            });
+
+            const dataTable = document.getElementById('dataTable');
+            dataTable.innerHTML = '';
+            dataTable.appendChild(table);
+        }
+
         // Gas form submission
         gasDataForm.addEventListener('submit', async (e) => {
             e.preventDefault();
