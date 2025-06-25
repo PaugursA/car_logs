@@ -4,8 +4,13 @@
     "icons": [
         {
             "src": "/volvo-logo.svg",
-            "sizes": "64x64",
+            "sizes": "any",
             "type": "image/svg+xml"
+        },
+        {
+            "src": "/volvo-logo-180x180.png",
+            "sizes": "180x180",
+            "type": "image/png"
         }
     ],
     "start_url": "./",
